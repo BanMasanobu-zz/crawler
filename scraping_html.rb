@@ -15,4 +15,7 @@ end
 
 doc = Nokogiri::HTML.parse(html, nil, charset)
 
-puts doc.css('title').text
+doc.css('#topicsfb > div.topicsindex > ul.emphasis > li > a').each { |a_tag|
+  puts a_tag.text
+}
+
