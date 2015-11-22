@@ -1,27 +1,49 @@
 require 'open-uri'
 require 'nokogiri'
-require 'robotex'
 require 'sqlite3'
+require 'json'
+urls = []
 
-robotex = Robotex.new
-p robotex.allowed?("https://www.goodfind.jp/2016/seminar/")
+db = SQLite3::Database.new('crawling_detail.db')
+db.execute('CREATE TABLE IF NOT EXISTS seminars_detail (title varchar(100), image_url varchar(200), presenter varchar(200), presenter_detail varchar(300), seminars_contents varchar(1000), iine_count integer)')
 
-db = SQLite3::Database.new('scraping.db')
-db.execute('CREATE TABLE IF NOT EXISTS seminars (title varchar(100), sub_title varchar(200));')
-
-url = "https://www.goodfind.jp/2016/seminar/"
-user_agent = 'Mozilla/5.0 (Windows NT 6.1) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/28.0.1500.63 Safari/537.36'
-
-charset = nil
-html = open(url, "User-Agent" => user_agent) do |f|
-  charset = f.charset
-  f.read
+(1650 .. 1699).each do |parameta|
+  urls.push("https://www.goodfind.jp/2016/seminar/" + parameta.to_s)
 end
 
-doc = Nokogiri::HTML.parse(html, nil, charset)
-
-doc.css("#toggle_view_section > div.toggle.list_view > div > div > ul > li > a > div.seminar_desc").each do |title|
-  puts title.css("h3").text
-  puts title.css("p").text
-  db.execute 'INSERT INTO seminars values ( ?, ? );', ["#{title.css("h3").text}", "#{title.css("p").text}"]
+urls.each_with_index do |url, index|
+  charset = nil
+  begin
+    html = open(url) do |f|
+      charset = f.charset
+      f.read
+    end
+    # セミナータイトル
+    doc = Nokogiri::HTML.parse(html, nil, charset)
+    puts doc.css('title').text
+    # メインイメージ
+    puts doc.css('#detail_top > img').attr('src')
+    img_url = doc.css('#detail_top > img').attr('src')
+    full_img_url = "https://www.goodfind.jp/" + img_url
+    # 登壇者&肩書き
+    puts doc.css('#section_1 > div > p > span').text
+    presenter = doc.css('#section_1 > div > p > span').text
+    # 登壇者詳細
+    puts doc.css('#section_2 > div > p > span').text
+    presenter_detail = doc.css('#section_2 > div > p > span').text
+    # セミナー詳細
+    seminars_contents = doc.css('#section_1 > div').text
+    # Facebookいいね
+    response = open("http://graph.facebook.com/#{url}").read
+    puts response
+    json = JSON.parse(response)
+    puts json
+    if json["shares"]
+      puts json["shares"].to_s
+      iine = json["shares"].to_i
+    end
+      db.execute 'INSERT INTO seminars_detail values ( ?, ?, ?, ?, ?, ? );', ["#{doc.css('title').text}", "#{full_img_url}", "#{presenter}", "#{presenter_detail}", "#{seminars_contents}", iine]
+  rescue
+    puts "error"
+  end
 end
