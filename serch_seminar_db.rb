@@ -9,7 +9,25 @@ get '/view_seminar' do
 
   html = '<h1>goodfind人気セミナー一覧</h1>'
 
-  db.execute('SELECT * FROM seminars_detail ORDER BY iine_count DESC;') do |row|
+  keyword = params[:keyword]
+  if keyword != nil
+    seminars = db.execute('SELECT * FROM seminars_detail where seminars_contents like ?;', "%#{keyword}%")
+  else
+    seminars = db.execute('SELECT * FROM seminars_detail ORDER BY iine_count DESC;')
+  end
+
+  html << %Q|
+    <hr>
+    <p>検索フォーム</p>
+    <form>
+      <input name="keyword">
+      <input type="submit" value="送信">
+    </form>
+    <p>検索結果::#{seminars.count}件</p>
+    <hr>
+    |
+
+  seminars.each  do |row|
     html << %Q|
       <div>
         <h2>#{row["title"]}　　いいね×#{row["iine_count"]}</h2>
